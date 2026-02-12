@@ -4,9 +4,14 @@ namespace App\Entity;
 
 use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
+use Symfony\Component\Security\Core\User\UserInterface;
+
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-class User
+#[UniqueEntity(fields: ['email'], message: 'There is already an account with this email')]
+class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -24,6 +29,7 @@ class User
 
     #[ORM\Column(length: 255)]
     private ?string $roles = null;
+
 
     public function getId(): ?int
     {
@@ -66,15 +72,29 @@ class User
         return $this;
     }
 
-    public function getRoles(): ?string
+    public function getUserIdentifier(): string
     {
-        return $this->roles;
+        return (string) $this->email;
     }
 
-    public function setRoles(string $roles): static
+    public function getRoles(): array
     {
-        $this->roles = $roles;
+        // $this->roles is stored as a string, so decode it to array
+        $roles = [];
+        if (is_string($this->roles)) {
+            $roles = json_decode($this->roles, true) ?? [];
+        }
+        // guarantee every user at least has ROLE_USER
+        if (!in_array('ROLE_USER', $roles)) {
+            $roles[] = 'ROLE_USER';
+        }
+        return $roles;
+    }
 
+    public function setRoles(array $roles): static
+    {
+        // Store roles as JSON string
+        $this->roles = json_encode($roles);
         return $this;
     }
 }
